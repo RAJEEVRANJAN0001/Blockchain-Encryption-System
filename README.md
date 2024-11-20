@@ -88,6 +88,7 @@ Block #1: <encrypted_message> (Hash: <block_hash>)
 
 Validating the Blockchain
 
+
 Decrypt:
 Enter the Encrypted Message: <encrypted_message>
 
