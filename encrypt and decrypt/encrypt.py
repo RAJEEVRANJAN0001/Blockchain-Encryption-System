@@ -10,18 +10,16 @@ import speech_recognition as sr  # Library for voice recognition
 
 # Block class to represent each block in the blockchain
 class Block:
-    def __init__(self, index, previous_hash, timestamp, encrypted_data, proof, quantum_resistant_key, signature):
+    def __init__(self, index, previous_hash, timestamp, encrypted_data, proof):
         self.index = index
         self.previous_hash = previous_hash
         self.timestamp = timestamp
         self.encrypted_data = encrypted_data
         self.proof = proof
-        self.quantum_resistant_key = quantum_resistant_key
-        self.signature = signature
         self.hash = self.calculate_hash()
 
     def calculate_hash(self):
-        block_string = f'{self.index}{self.previous_hash}{self.timestamp}{self.encrypted_data}{self.proof}{self.quantum_resistant_key}{self.signature}'
+        block_string = f'{self.index}{self.previous_hash}{self.timestamp}{self.encrypted_data}{self.proof}'
         return hashlib.sha256(block_string.encode('utf-8')).hexdigest()
 
 
@@ -33,12 +31,12 @@ class Blockchain:
 
     def create_genesis_block(self):
         # Genesis block with no previous hash
-        genesis_block = Block(0, "0", time.time(), "Genesis Block", 100, "None", "None")
+        genesis_block = Block(0, "0", time.time(), "Genesis Block", 100)
         self.chain.append(genesis_block)
 
-    def add_block(self, encrypted_data, proof, quantum_resistant_key, signature):
+    def add_block(self, encrypted_data, proof):
         previous_block = self.chain[-1]
-        new_block = Block(len(self.chain), previous_block.hash, time.time(), encrypted_data, proof, quantum_resistant_key, signature)
+        new_block = Block(len(self.chain), previous_block.hash, time.time(), encrypted_data, proof)
         self.chain.append(new_block)
         return new_block
 
@@ -93,13 +91,9 @@ class BlockchainEncryption:
         previous_proof = self.blockchain.get_latest_block().proof
         proof = self.blockchain.proof_of_work(previous_proof)
 
-        # Generate random quantum-resistant key and signature
-        quantum_resistant_key = self.generate_random_key(64)  # 64-character alphanumeric key
-        signature = self.generate_random_key(128)  # 128-character alphanumeric signature
-
         # Add encrypted message to the blockchain
-        self.blockchain.add_block(encrypted_message, proof, quantum_resistant_key, signature)
-        return encrypted_message, key, iv, quantum_resistant_key, signature
+        self.blockchain.add_block(encrypted_message, proof)
+        return encrypted_message, key, iv
 
     def get_voice_input(self, timeout=5):
         """Get voice input from the user."""
@@ -146,12 +140,10 @@ def encrypt_main():
         return
 
     # Encrypt the message
-    encrypted_message, key, iv, quantum_resistant_key, signature = blockchain_encryption.encrypt_message(message)
+    encrypted_message, key, iv = blockchain_encryption.encrypt_message(message)
     print(f"Encrypted Message: {encrypted_message}")
     print(f"Auto-generated AES Key: {key}")
     print(f"Initialization Vector (IV): {iv}")
-    print(f"Quantum Resistant Key: {quantum_resistant_key}")
-    print(f"Signature: {signature}")
 
     # Show the entire blockchain
     for block in blockchain_encryption.blockchain.chain:
@@ -163,5 +155,3 @@ def encrypt_main():
 
 if __name__ == "__main__":
     encrypt_main()
-
-
