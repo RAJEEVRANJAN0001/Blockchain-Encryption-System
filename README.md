@@ -83,7 +83,9 @@ Message Signature: <signature>
 
 Blockchain:
 Block #0: Genesis Block (Hash: <genesis_block_hash>)
+
 Block #1: <encrypted_message> (Hash: <block_hash>)
+
 Validating the Blockchain
 
 Decrypt:
@@ -99,6 +101,7 @@ Decrypted Message: Hello, Blockchain Encryption!
 
 Blockchain:
 Block #0: Genesis Block (Hash: <genesis_block_hash>)
+
 Block #1: <encrypted_message> (Hash: <block_hash>)
 
 # Contributing
