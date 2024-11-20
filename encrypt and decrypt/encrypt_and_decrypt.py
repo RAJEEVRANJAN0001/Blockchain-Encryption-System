@@ -10,7 +10,7 @@ from Crypto.Util.Padding import pad, unpad
 from Crypto.Signature import pkcs1_15
 from Crypto.Hash import SHA256
 import secrets  # For generating secure random keys
-import speech_recognition as sr  # Library for voice recognition
+import speech_recognition as sr  # voice recognition
 
 
 # Generate RSA private and public keys if they don't already exist
