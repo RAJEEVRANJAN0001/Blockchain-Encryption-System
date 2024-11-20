@@ -67,7 +67,7 @@ Base64 (for encoding and decoding data)
 time (for timestamping blockchain entries)
 Setup and Installation
 
-Example:
+# Example:
 
 Please select input format ('text' or 'voice'): text
 
