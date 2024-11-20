@@ -10,7 +10,7 @@ from Crypto.Util.Padding import pad, unpad
 from Crypto.Signature import pkcs1_15
 from Crypto.Hash import SHA256
 import secrets  # For generating secure random keys
-import speech_recognition as sr  # Library for voice recognition
+import speech_recognition as sr  #voice recognition
 
 # Generate RSA private and public keys if they don't already exist
 def generate_keys():
@@ -44,9 +44,6 @@ class Block:
     def calculate_hash(self):
         block_string = f'{self.index}{self.previous_hash}{self.timestamp}{self.encrypted_data}{self.proof}{self.signature}'
         return hashlib.sha256(block_string.encode('utf-8')).hexdigest()
-
-
-# Blockchain class
 class Blockchain:
     def __init__(self):
         self.chain = []
@@ -138,10 +135,7 @@ class BlockchainEncryption:
         """Get voice input from the user."""
         recognizer = sr.Recognizer()
         microphone = sr.Microphone()
-
         print("Please say something...")
-
-        # Listen for 5 seconds
         with microphone as source:
             recognizer.adjust_for_ambient_noise(source)
             try:
@@ -156,8 +150,6 @@ class BlockchainEncryption:
                 print("Sorry, I could not understand your speech.")
                 return None
 
-
-# Main function to handle encryption
 def encrypt_main():
     print("Blockchain Encryption System")
 
@@ -178,7 +170,6 @@ def encrypt_main():
         print("Invalid choice! Please enter 'text' or 'voice'.")
         return
 
-    # Encrypt the message
     encrypted_message, key, iv, signature = blockchain_encryption.encrypt_message(message)
     print(f"Encrypted Message: {encrypted_message}")
     print(f"Auto-generated AES Key: {key}")
