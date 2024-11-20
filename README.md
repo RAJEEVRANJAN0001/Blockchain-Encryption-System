@@ -70,11 +70,17 @@ Setup and Installation
 Example:
 
 Please select input format ('text' or 'voice'): text
+
 Enter the message to encrypt: Hello, Blockchain Encryption!
+
 Encrypted Message: <encrypted_message>
+
 Auto-generated AES Key: <aes_key>
+
 Initialization Vector (IV): <iv>
+
 Message Signature: <signature>
+
 Blockchain:
 Block #0: Genesis Block (Hash: <genesis_block_hash>)
 Block #1: <encrypted_message> (Hash: <block_hash>)
@@ -82,10 +88,15 @@ Validating the Blockchain
 
 Decrypt:
 Enter the Encrypted Message: <encrypted_message>
+
 Enter the Auto-generated AES Key: <aes_key>
+
 Enter the Initialization Vector (IV): <iv>
+
 Enter the Signature (Hex format): <signature>
+
 Decrypted Message: Hello, Blockchain Encryption!
+
 Blockchain:
 Block #0: Genesis Block (Hash: <genesis_block_hash>)
 Block #1: <encrypted_message> (Hash: <block_hash>)
