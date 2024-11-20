@@ -3,29 +3,50 @@ import random
 import string
 import time
 import base64
+import os
+from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
+from Crypto.Signature import pkcs1_15
+from Crypto.Hash import SHA256
 import secrets  # For generating secure random keys
 import speech_recognition as sr  # Library for voice recognition
 
+
+# Generate RSA private and public keys if they don't already exist
+def generate_keys():
+    if not os.path.exists('private_key.pem') or not os.path.exists('public_key.pem'):
+        print("Generating RSA keys...")
+        key = RSA.generate(2048)
+
+        private_key = key.export_key()
+        with open("private_key.pem", "wb") as private_file:
+            private_file.write(private_key)
+
+        public_key = key.publickey().export_key()
+        with open("public_key.pem", "wb") as public_file:
+            public_file.write(public_key)
+
+        print("RSA keys have been generated and saved as private_key.pem and public_key.pem")
+    else:
+        print("RSA keys already exist.")
+
 # Block class to represent each block in the blockchain
 class Block:
-    def __init__(self, index, previous_hash, timestamp, encrypted_data, proof, quantum_resistant_key, signature):
+    def __init__(self, index, previous_hash, timestamp, encrypted_data, proof, signature):
         self.index = index
         self.previous_hash = previous_hash
         self.timestamp = timestamp
         self.encrypted_data = encrypted_data
         self.proof = proof
-        self.quantum_resistant_key = quantum_resistant_key
         self.signature = signature
         self.hash = self.calculate_hash()
 
     def calculate_hash(self):
-        block_string = f'{self.index}{self.previous_hash}{self.timestamp}{self.encrypted_data}{self.proof}{self.quantum_resistant_key}{self.signature}'
+        block_string = f'{self.index}{self.previous_hash}{self.timestamp}{self.encrypted_data}{self.proof}{self.signature}'
         return hashlib.sha256(block_string.encode('utf-8')).hexdigest()
 
-
-# Blockchain class to represent the blockchain and manage blocks
+# Blockchain class
 class Blockchain:
     def __init__(self):
         self.chain = []
@@ -33,12 +54,12 @@ class Blockchain:
 
     def create_genesis_block(self):
         # Genesis block with no previous hash
-        genesis_block = Block(0, "0", time.time(), "Genesis Block", 100, "None", "None")
+        genesis_block = Block(0, "0", time.time(), "Genesis Block", 100, "0")
         self.chain.append(genesis_block)
 
-    def add_block(self, encrypted_data, proof, quantum_resistant_key, signature):
+    def add_block(self, encrypted_data, proof, signature):
         previous_block = self.chain[-1]
-        new_block = Block(len(self.chain), previous_block.hash, time.time(), encrypted_data, proof, quantum_resistant_key, signature)
+        new_block = Block(len(self.chain), previous_block.hash, time.time(), encrypted_data, proof, signature)
         self.chain.append(new_block)
         return new_block
 
@@ -72,11 +93,11 @@ class Blockchain:
         guess_hash = hashlib.sha256(guess).hexdigest()
         return guess_hash[:4] == "0000"
 
-
-# BlockchainEncryption class to handle AES encryption, decryption, and blockchain operations
+# BlockchainEncryption class to handle AES encryption and blockchain operations
 class BlockchainEncryption:
     def __init__(self):
         self.blockchain = Blockchain()
+        generate_keys()  # Generate keys if not already present
 
     def generate_random_key(self, length=32):
         """Generate a secure random key for quantum-resistant encryption."""
@@ -93,27 +114,24 @@ class BlockchainEncryption:
         previous_proof = self.blockchain.get_latest_block().proof
         proof = self.blockchain.proof_of_work(previous_proof)
 
-        # Generate random quantum-resistant key and signature
-        quantum_resistant_key = self.generate_random_key(64)  # 64-character alphanumeric key
-        signature = self.generate_random_key(128)  # 128-character alphanumeric signature
+        # Generate signature for the encrypted message
+        signature = self.generate_signature(encrypted_message)
 
-        # Add encrypted message to the blockchain
-        self.blockchain.add_block(encrypted_message, proof, quantum_resistant_key, signature)
-        return encrypted_message, key, iv, quantum_resistant_key, signature
+        # Add encrypted message and signature to the blockchain
+        self.blockchain.add_block(encrypted_message, proof, signature)
+        return encrypted_message, key, iv, signature
 
-    def decrypt_message(self, encrypted_message, aes_key, iv):
-        """Decrypt the AES-encrypted message."""
-        cipher = AES.new(aes_key.encode('utf-8'), AES.MODE_CBC, base64.b64decode(iv.encode('utf-8')))
-        decrypted_data = unpad(cipher.decrypt(base64.b64decode(encrypted_message.encode('utf-8'))), AES.block_size)
-        return decrypted_data.decode('utf-8')
+    def generate_signature(self, encrypted_message):
+        private_key = RSA.import_key(open("private_key.pem").read())  # Load private key securely
 
-    def validate_quantum_resistant_key(self, quantum_resistant_key):
-        """Validates the quantum-resistant key."""
-        return len(quantum_resistant_key) == 64  # Example check for length
+        # Create a SHA256 hash of the encrypted message
+        hash_message = SHA256.new(encrypted_message.encode())
 
-    def validate_signature(self, signature):
-        """Validates the signature."""
-        return len(signature) == 128  # Example check for length
+        # Sign the hashed message with the private key
+        signer = pkcs1_15.new(private_key)
+        signature = signer.sign(hash_message)
+
+        return signature
 
     def get_voice_input(self, timeout=5):
         """Get voice input from the user."""
@@ -137,81 +155,88 @@ class BlockchainEncryption:
                 print("Sorry, I could not understand your speech.")
                 return None
 
+    def decrypt_message(self, encrypted_message, aes_key, iv):
+        """Decrypt the AES-encrypted message."""
+        cipher = AES.new(aes_key.encode('utf-8'), AES.MODE_CBC, base64.b64decode(iv.encode('utf-8')))
+        decrypted_data = unpad(cipher.decrypt(base64.b64decode(encrypted_message.encode('utf-8'))), AES.block_size)
+        return decrypted_data.decode('utf-8')
 
-# Main function to handle encryption
-def encrypt_main():
-    print("Blockchain Encryption System")
+    def verify_signature(self, encrypted_message, signature):
+        """Verify the signature of the encrypted message."""
+        public_key = RSA.import_key(open("public_key.pem").read())  # Load the public key
 
-    # Initialize BlockchainEncryption object
+        # Create a SHA256 hash of the encrypted message
+        hash_message = SHA256.new(encrypted_message.encode())
+
+        try:
+            pkcs1_15.new(public_key).verify(hash_message, signature)
+            print("Signature is valid.")
+            return True
+        except (ValueError, TypeError):
+            print("Signature is not valid.")
+            return False
+
+    def get_message_from_user(self):
+        """Get encrypted message, AES key, IV, and signature from user."""
+        encrypted_message = input("Enter the encrypted message: ")
+        aes_key = input("Enter the AES key: ")
+        iv = input("Enter the IV: ")
+        signature_hex = input("Enter the signature (hex): ")
+        signature = bytes.fromhex(signature_hex)
+        return encrypted_message, aes_key, iv, signature
+
+
+# Main function to handle both encryption and decryption
+def main():
+    print("Blockchain Encryption/Decryption System")
+
     blockchain_encryption = BlockchainEncryption()
 
-    # Ask the user whether they want to input via text or voice
-    input_choice = input("Please select input format ('text' or 'voice'): ").strip().lower()
+    action_choice = input("Choose action (encrypt/decrypt): ").strip().lower()
 
-    if input_choice == "text":
-        message = input("Enter the message to encrypt: ")
-    elif input_choice == "voice":
-        message = blockchain_encryption.get_voice_input()
-        if not message:
-            print("No input received, exiting...")
+    if action_choice == "encrypt":
+        # Ask the user whether they want to input via text or voice
+        input_choice = input("Please select input format ('text' or 'voice'): ").strip().lower()
+
+        if input_choice == "text":
+            message = input("Enter the message to encrypt: ")
+        elif input_choice == "voice":
+            message = blockchain_encryption.get_voice_input()
+            if not message:
+                print("No input received, exiting...")
+                return
+        else:
+            print("Invalid choice! Please enter 'text' or 'voice'.")
             return
+
+        # Encrypt the message
+        encrypted_message, key, iv, signature = blockchain_encryption.encrypt_message(message)
+        print(f"Encrypted Message: {encrypted_message}")
+        print(f"Auto-generated AES Key: {key}")
+        print(f"Initialization Vector (IV): {iv}")
+        print(f"Message Signature: {signature.hex()}")
+
+        # Show the entire blockchain
+        for block in blockchain_encryption.blockchain.chain:
+            print(f"Block #{block.index}: {block.encrypted_data} (Hash: {block.hash})")
+
+        # Validate the blockchain
+        blockchain_encryption.blockchain.validate_chain()
+
+    elif action_choice == "decrypt":
+        encrypted_message, aes_key, iv, signature = blockchain_encryption.get_message_from_user()
+
+        # Verify the signature
+        if not blockchain_encryption.verify_signature(encrypted_message, signature):
+            return
+
+        # Decrypt the message
+        decrypted_message = blockchain_encryption.decrypt_message(encrypted_message, aes_key, iv)
+        print(f"Decrypted Message: {decrypted_message}")
+
     else:
-        print("Invalid choice! Please enter 'text' or 'voice'.")
-        return
-
-    # Encrypt the message
-    encrypted_message, key, iv, quantum_resistant_key, signature = blockchain_encryption.encrypt_message(message)
-    print(f"Encrypted Message: {encrypted_message}")
-    print(f"Auto-generated AES Key: {key}")
-    print(f"Initialization Vector (IV): {iv}")
-    print(f"Quantum Resistant Key: {quantum_resistant_key}")
-    print(f"Signature: {signature}")
-
-    # Show the entire blockchain
-    for block in blockchain_encryption.blockchain.chain:
-        print(f"Block #{block.index}: {block.encrypted_data} (Hash: {block.hash})")
-
-    # Validate the blockchain
-    blockchain_encryption.blockchain.validate_chain()
-
-
-# Main function to handle decryption
-def decrypt_main():
-    print("Blockchain Decryption System")
-
-    # Take inputs from the user (encrypted message, AES key, IV, quantum-resistant key, and signature)
-    encrypted_message = input("Enter the Encrypted Message: ").strip()
-    aes_key = input("Enter the Auto-generated AES Key: ").strip()
-    iv = input("Enter the Initialization Vector (IV): ").strip()
-    quantum_resistant_key = input("Enter the Quantum Resistant Key: ").strip()
-    signature = input("Enter the Signature: ").strip()
-
-    # Initialize BlockchainEncryption object
-    blockchain_encryption = BlockchainEncryption()
-
-    # Validate quantum-resistant key and signature
-    if not blockchain_encryption.validate_quantum_resistant_key(quantum_resistant_key):
-        print("Invalid Quantum Resistant Key!")
-        return
-
-    if not blockchain_encryption.validate_signature(signature):
-        print("Invalid Signature!")
-        return
-
-    # Decrypt the message using the AES key and IV
-    decrypted_message = blockchain_encryption.decrypt_message(encrypted_message, aes_key, iv)
-    print(f"Decrypted Message: {decrypted_message}")
-
-    # Show the entire blockchain
-    for block in blockchain_encryption.blockchain.chain:
-        print(f"Block #{block.index}: {block.encrypted_data} (Hash: {block.hash})")
+        print("Invalid choice! Please enter 'encrypt' or 'decrypt'.")
 
 
 if __name__ == "__main__":
-    action_choice = input("Do you want to (1) Encrypt or (2) Decrypt? Enter 1 or 2: ").strip()
-    if action_choice == "1":
-        encrypt_main()
-    elif action_choice == "2":
-        decrypt_main()
-    else:
-        print("Invalid choice! Exiting...")
+    main()
