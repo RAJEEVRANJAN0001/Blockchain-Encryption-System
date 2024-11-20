@@ -3,23 +3,46 @@ import random
 import string
 import time
 import base64
+import os
+from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
+from Crypto.Signature import pkcs1_15
+from Crypto.Hash import SHA256
 import secrets  # For generating secure random keys
 import speech_recognition as sr  # Library for voice recognition
 
+# Generate RSA private and public keys if they don't already exist
+def generate_keys():
+    if not os.path.exists('private_key.pem') or not os.path.exists('public_key.pem'):
+        print("Generating RSA keys...")
+        key = RSA.generate(2048)
+
+        private_key = key.export_key()
+        with open("private_key.pem", "wb") as private_file:
+            private_file.write(private_key)
+
+        public_key = key.publickey().export_key()
+        with open("public_key.pem", "wb") as public_file:
+            public_file.write(public_key)
+
+        print("RSA keys have been generated and saved as private_key.pem and public_key.pem")
+    else:
+        print("RSA keys already exist.")
+
 # Block class to represent each block in the blockchain
 class Block:
-    def __init__(self, index, previous_hash, timestamp, encrypted_data, proof):
+    def __init__(self, index, previous_hash, timestamp, encrypted_data, proof, signature):
         self.index = index
         self.previous_hash = previous_hash
         self.timestamp = timestamp
         self.encrypted_data = encrypted_data
         self.proof = proof
+        self.signature = signature
         self.hash = self.calculate_hash()
 
     def calculate_hash(self):
-        block_string = f'{self.index}{self.previous_hash}{self.timestamp}{self.encrypted_data}{self.proof}'
+        block_string = f'{self.index}{self.previous_hash}{self.timestamp}{self.encrypted_data}{self.proof}{self.signature}'
         return hashlib.sha256(block_string.encode('utf-8')).hexdigest()
 
 
@@ -31,12 +54,12 @@ class Blockchain:
 
     def create_genesis_block(self):
         # Genesis block with no previous hash
-        genesis_block = Block(0, "0", time.time(), "Genesis Block", 100)
+        genesis_block = Block(0, "0", time.time(), "Genesis Block", 100, "0")
         self.chain.append(genesis_block)
 
-    def add_block(self, encrypted_data, proof):
+    def add_block(self, encrypted_data, proof, signature):
         previous_block = self.chain[-1]
-        new_block = Block(len(self.chain), previous_block.hash, time.time(), encrypted_data, proof)
+        new_block = Block(len(self.chain), previous_block.hash, time.time(), encrypted_data, proof, signature)
         self.chain.append(new_block)
         return new_block
 
@@ -75,6 +98,7 @@ class Blockchain:
 class BlockchainEncryption:
     def __init__(self):
         self.blockchain = Blockchain()
+        generate_keys()  # Generate keys if not already present
 
     def generate_random_key(self, length=32):
         """Generate a secure random key for quantum-resistant encryption."""
@@ -91,9 +115,24 @@ class BlockchainEncryption:
         previous_proof = self.blockchain.get_latest_block().proof
         proof = self.blockchain.proof_of_work(previous_proof)
 
-        # Add encrypted message to the blockchain
-        self.blockchain.add_block(encrypted_message, proof)
-        return encrypted_message, key, iv
+        # Generate signature for the encrypted message
+        signature = self.generate_signature(encrypted_message)
+
+        # Add encrypted message and signature to the blockchain
+        self.blockchain.add_block(encrypted_message, proof, signature)
+        return encrypted_message, key, iv, signature
+
+    def generate_signature(self, encrypted_message):
+        private_key = RSA.import_key(open("private_key.pem").read())  # Load private key securely
+
+        # Create a SHA256 hash of the encrypted message
+        hash_message = SHA256.new(encrypted_message.encode())
+
+        # Sign the hashed message with the private key
+        signer = pkcs1_15.new(private_key)
+        signature = signer.sign(hash_message)
+
+        return signature
 
     def get_voice_input(self, timeout=5):
         """Get voice input from the user."""
@@ -140,10 +179,11 @@ def encrypt_main():
         return
 
     # Encrypt the message
-    encrypted_message, key, iv = blockchain_encryption.encrypt_message(message)
+    encrypted_message, key, iv, signature = blockchain_encryption.encrypt_message(message)
     print(f"Encrypted Message: {encrypted_message}")
     print(f"Auto-generated AES Key: {key}")
     print(f"Initialization Vector (IV): {iv}")
+    print(f"Message Signature: {signature.hex()}")
 
     # Show the entire blockchain
     for block in blockchain_encryption.blockchain.chain:
