@@ -1,8 +1,12 @@
 import hashlib
 import base64
+from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
-import secrets  # For generating secure random keys
+from Crypto.Signature import pkcs1_15
+from Crypto.Hash import SHA256
+import os
+
 
 # Block class to represent each block in the blockchain
 class Block:
@@ -46,6 +50,7 @@ class Blockchain:
 class BlockchainEncryption:
     def __init__(self):
         self.blockchain = Blockchain()
+        self.private_key = RSA.import_key(open("private_key.pem").read())  # Load private key securely
 
     def decrypt_message(self, encrypted_message, aes_key, iv):
         """Decrypt the AES-encrypted message."""
@@ -53,38 +58,39 @@ class BlockchainEncryption:
         decrypted_data = unpad(cipher.decrypt(base64.b64decode(encrypted_message.encode('utf-8'))), AES.block_size)
         return decrypted_data.decode('utf-8')
 
-    def validate_quantum_resistant_key(self, quantum_resistant_key):
-        """Validates the quantum-resistant key (this can be a placeholder check)."""
-        # Here we can add validation logic to verify quantum-resistant key (e.g., length check or pattern check).
-        return len(quantum_resistant_key) == 64  # Example check for length
+    def verify_signature(self, encrypted_message, signature):
+        """Verify the message's signature using the public key."""
+        public_key = self.private_key.publickey()  # Public key to verify signature
+        hash_message = SHA256.new(encrypted_message.encode())
 
-    def validate_signature(self, signature):
-        """Validates the signature (this can be a placeholder check)."""
-        # Here we can add logic to validate the signature (e.g., using RSA or ECDSA for verification).
-        return len(signature) == 128  # Example check for length
+        try:
+            pkcs1_15.new(public_key).verify(hash_message, signature)
+            print("The signature is valid.")
+            return True
+        except (ValueError, TypeError):
+            print("The signature is not valid.")
+            return False
 
 
 # Main function to handle decryption
 def decrypt_main():
     print("Blockchain Decryption System")
 
-    # Take inputs from the user (encrypted message, AES key, IV, quantum-resistant key, and signature)
+    # Take inputs from the user (encrypted message, AES key, IV, and signature)
     encrypted_message = input("Enter the Encrypted Message: ").strip()
     aes_key = input("Enter the Auto-generated AES Key: ").strip()
     iv = input("Enter the Initialization Vector (IV): ").strip()
-    quantum_resistant_key = input("Enter the Quantum Resistant Key: ").strip()
-    signature = input("Enter the Signature: ").strip()
+    signature_input = input("Enter the Signature (Hex format): ").strip()
+
+    # Convert signature from hex to bytes
+    signature = bytes.fromhex(signature_input)
 
     # Initialize BlockchainEncryption object
     blockchain_encryption = BlockchainEncryption()
 
-    # Validate quantum-resistant key and signature
-    if not blockchain_encryption.validate_quantum_resistant_key(quantum_resistant_key):
-        print("Invalid Quantum Resistant Key!")
-        return
-
-    if not blockchain_encryption.validate_signature(signature):
-        print("Invalid Signature!")
+    # Verify the signature
+    if not blockchain_encryption.verify_signature(encrypted_message, signature):
+        print("Decryption cannot proceed due to invalid signature.")
         return
 
     # Decrypt the message using the AES key and IV
@@ -98,3 +104,5 @@ def decrypt_main():
 
 if __name__ == "__main__":
     decrypt_main()
+
+
